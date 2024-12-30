@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { DocumentTextIcon, ArrowPathIcon, SparklesIcon } from '@heroicons/react/24/outline';
+import { ArrowPathIcon, SparklesIcon } from '@heroicons/react/24/outline';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { History } from '@/components/History';
 import { StatsChart } from '@/components/StatsChart';
