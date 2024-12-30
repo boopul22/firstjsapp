@@ -3,19 +3,119 @@
 @tailwind utilities;
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f0f4f8;
+  --foreground: #2e3a4a;
+  --primary: #79b0cf;
+  --primary-foreground: #ffffff;
+  --secondary: #e8eef2;
+  --secondary-foreground: #2e3a4a;
+  --accent: #dbe6ed;
+  --accent-foreground: #2e3a4a;
+  --destructive: #f2b6b0;
+  --destructive-foreground: #ffffff;
+  --muted: #e8eef2;
+  --muted-foreground: #6b7280;
+  --card: #ffffff;
+  --card-foreground: #2e3a4a;
+  --border: #d1d5db;
+  --input: #d1d5db;
+  --ring: #79b0cf;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+.dark {
+  --background: #1e293b;
+  --foreground: #f0f4f8;
+  --primary: #79b0cf;
+  --primary-foreground: #ffffff;
+  --secondary: #334155;
+  --secondary-foreground: #f0f4f8;
+  --accent: #475569;
+  --accent-foreground: #f0f4f8;
+  --destructive: #f2b6b0;
+  --destructive-foreground: #ffffff;
+  --muted: #334155;
+  --muted-foreground: #94a3b8;
+  --card: #2e3a4a;
+  --card-foreground: #f0f4f8;
+  --border: #4b5563;
+  --input: #4b5563;
+  --ring: #79b0cf;
+}
+
+@layer base {
+  * {
+    @apply border-[var(--border)];
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+    transition: background-color 0.3s ease, color 0.3s ease;
   }
 }
 
 body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  transition: background-color 0.3s ease, color 0.3s ease;
+  @apply bg-gradient-to-b from-blue-50 to-white dark:from-gray-900 dark:to-gray-800;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  @apply tracking-tight;
+}
+
+h1 {
+  @apply text-4xl leading-tight;
+}
+
+h2 {
+  @apply text-3xl leading-tight;
+}
+
+h3 {
+  @apply text-2xl leading-snug;
+}
+
+p {
+  @apply leading-relaxed;
+}
+
+.container {
+  @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
+}
+
+@layer utilities {
+  .animate-in {
+    animation: animate-in 0.3s ease-in-out;
+  }
+  
+  .animate-out {
+    animation: animate-out 0.3s ease-in-out;
+  }
+
+  @keyframes animate-in {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes animate-out {
+    from {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    to {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+  }
+
+  .ios-shadow {
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1), 0 8px 16px rgba(0, 0, 0, 0.1);
+  }
 }
