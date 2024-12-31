@@ -19,6 +19,47 @@ interface DailyData {
   stats: UsageStats;
 }
 
+const SavedData = ({ data }: { data: Record<string, DailyData> }) => {
+  return (
+    <div className="p-4">
+      {Object.entries(data).length === 0 ? (
+        <p className="text-gray-500 dark:text-gray-400 text-center">No saved data available.</p>
+      ) : (
+        <div className="space-y-6">
+          {Object.entries(data)
+            .sort(([dateA], [dateB]) => new Date(dateB).getTime() - new Date(dateA).getTime())
+            .map(([date, dayData]) => (
+              <div key={date} className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow">
+                <h3 className="text-lg font-semibold mb-2">{new Date(date).toLocaleDateString()}</h3>
+                <div className="grid grid-cols-2 gap-4 mb-4 text-sm">
+                  <div>
+                    <p>Word Count: {dayData.stats.wordCount}</p>
+                    <p>Token Count: {dayData.stats.tokenCount}</p>
+                    <p>Cost: ${dayData.stats.cost.toFixed(4)}</p>
+                  </div>
+                  <div>
+                    <p>Entries: {dayData.history.length}</p>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  {dayData.history.map((item, index) => (
+                    <div key={index} className="border-t dark:border-gray-700 pt-2">
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                        {new Date(item.timestamp).toLocaleTimeString()}
+                      </p>
+                      <p className="text-sm mt-1">Original: {item.originalText.substring(0, 100)}...</p>
+                      <p className="text-sm mt-1">Rewritten: {item.rewrittenText.substring(0, 100)}...</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
 export default function Home() {
   const [inputText, setInputText] = useState('');
   const [outputText, setOutputText] = useState('');
@@ -28,14 +69,42 @@ export default function Home() {
   const [currentDate, setCurrentDate] = useState(new Date().toISOString().split('T')[0]);
   const [stats, setStats] = useState<UsageStats>({ wordCount: 0, tokenCount: 0, cost: 0 });
 
+  // Load data from localStorage
   useEffect(() => {
-    const storedData = localStorage.getItem('rewriteData');
-    if (storedData) {
-      const parsedData = JSON.parse(storedData);
-      setDailyData(parsedData);
+    try {
+      const storedData = localStorage.getItem('rewriteData');
+      if (storedData) {
+        const parsedData = JSON.parse(storedData);
+        // Convert string dates back to Date objects for timestamps
+        Object.keys(parsedData).forEach(date => {
+          parsedData[date].history = parsedData[date].history.map((item: any) => ({
+            ...item,
+            timestamp: new Date(item.timestamp)
+          }));
+        });
+        setDailyData(parsedData);
+        console.log('Loaded data:', parsedData);
+      }
+    } catch (err) {
+      console.error('Error loading saved data:', err);
+      // Initialize with empty data if there's an error
+      setDailyData({});
     }
   }, []);
 
+  // Save data to localStorage whenever it changes
+  useEffect(() => {
+    try {
+      if (Object.keys(dailyData).length > 0) {
+        localStorage.setItem('rewriteData', JSON.stringify(dailyData));
+        console.log('Saved data:', dailyData);
+      }
+    } catch (err) {
+      console.error('Error saving data:', err);
+    }
+  }, [dailyData]);
+
+  // Update stats when date or data changes
   useEffect(() => {
     if (dailyData[currentDate]) {
       setStats(dailyData[currentDate].stats);
@@ -55,7 +124,6 @@ export default function Home() {
 
     try {
       const currentStats = calculateStats(inputText);
-      setStats(currentStats);
 
       const response = await fetch('/api/rewrite', {
         method: 'POST',
@@ -72,33 +140,42 @@ export default function Home() {
       const data = await response.json();
       setOutputText(data.rewrittenText);
 
-      // Add to history
+      // Create history item with current timestamp
       const historyItem: HistoryItem = {
         originalText: inputText,
         rewrittenText: data.rewrittenText,
         timestamp: new Date(),
       };
 
+      // Update daily data with new entry
       setDailyData(prev => {
         const updatedData = { ...prev };
         if (!updatedData[currentDate]) {
-          updatedData[currentDate] = { history: [], stats: currentStats };
-        } else {
-          // Accumulate stats
-          updatedData[currentDate].stats = {
-            wordCount: updatedData[currentDate].stats.wordCount + currentStats.wordCount,
-            tokenCount: updatedData[currentDate].stats.tokenCount + currentStats.tokenCount,
-            cost: updatedData[currentDate].stats.cost + currentStats.cost,
+          updatedData[currentDate] = {
+            history: [],
+            stats: currentStats
           };
         }
-        updatedData[currentDate].history = [historyItem, ...updatedData[currentDate].history];
-        localStorage.setItem('rewriteData', JSON.stringify(updatedData));
-        setStats(updatedData[currentDate].stats);
+
+        // Update stats
+        updatedData[currentDate].stats = {
+          wordCount: (updatedData[currentDate].stats.wordCount || 0) + currentStats.wordCount,
+          tokenCount: (updatedData[currentDate].stats.tokenCount || 0) + currentStats.tokenCount,
+          cost: (updatedData[currentDate].stats.cost || 0) + currentStats.cost,
+        };
+
+        // Add new history item
+        updatedData[currentDate].history = [
+          historyItem,
+          ...(updatedData[currentDate].history || [])
+        ];
+
         return updatedData;
       });
+
     } catch (err) {
+      console.error('Error:', err);
       setError('Failed to rewrite text. Please try again.');
-      console.error(err);
     } finally {
       setIsLoading(false);
     }
@@ -110,8 +187,12 @@ export default function Home() {
   };
 
   const handleClearHistory = () => {
-    setDailyData({});
-    localStorage.removeItem('rewriteData');
+    const shouldClear = window.confirm('Are you sure you want to clear all history? This cannot be undone.');
+    if (shouldClear) {
+      setDailyData({});
+      localStorage.removeItem('rewriteData');
+      setStats({ wordCount: 0, tokenCount: 0, cost: 0 });
+    }
   };
 
   const handleDateChange = (date: string) => {
@@ -213,6 +294,10 @@ export default function Home() {
               {
                 label: 'Stats',
                 content: <StatsChart stats={stats} />,
+              },
+              {
+                label: 'Saved Data',
+                content: <SavedData data={dailyData} />,
               },
             ]}
           />
