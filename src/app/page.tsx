@@ -7,6 +7,7 @@ import { History } from '@/components/History';
 import { StatsChart } from '@/components/StatsChart';
 import { calculateStats, type UsageStats } from '@/utils/stats';
 import { Tabs } from '@/components/Tabs';
+import { supabase, type UsageRecord } from '@/utils/supabase';
 
 interface HistoryItem {
   originalText: string;
@@ -147,6 +148,23 @@ export default function Home() {
         timestamp: new Date(),
       };
 
+      // Save to Supabase
+      const usageRecord: UsageRecord = {
+        original_text: inputText,
+        rewritten_text: data.rewrittenText,
+        word_count: currentStats.wordCount,
+        token_count: currentStats.tokenCount,
+        cost: currentStats.cost,
+      };
+
+      const { error: supabaseError } = await supabase
+        .from('usage_records')
+        .insert(usageRecord);
+
+      if (supabaseError) {
+        console.error('Error saving to Supabase:', supabaseError);
+      }
+
       // Update daily data with new entry
       setDailyData(prev => {
         const updatedData = { ...prev };
@@ -173,8 +191,8 @@ export default function Home() {
         return updatedData;
       });
 
-    } catch (err) {
-      console.error('Error:', err);
+    } catch (error) {
+      console.error('Error:', error);
       setError('Failed to rewrite text. Please try again.');
     } finally {
       setIsLoading(false);
