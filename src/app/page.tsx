@@ -78,7 +78,7 @@ export default function Home() {
         const parsedData = JSON.parse(storedData);
         // Convert string dates back to Date objects for timestamps
         Object.keys(parsedData).forEach(date => {
-          parsedData[date].history = parsedData[date].history.map((item: any) => ({
+          parsedData[date].history = parsedData[date].history.map((item: { timestamp: string } & Omit<HistoryItem, 'timestamp'>) => ({
             ...item,
             timestamp: new Date(item.timestamp)
           }));
