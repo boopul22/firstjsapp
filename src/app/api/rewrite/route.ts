@@ -3,7 +3,7 @@ import { rewriteText } from '@/utils/gemini';
 
 export async function POST(request: Request) {
   try {
-    const { text } = await request.json();
+    const { text, style = 'hindi' } = await request.json();
 
     if (!text) {
       return NextResponse.json(
@@ -12,7 +12,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const rewrittenText = await rewriteText(text);
+    const rewrittenText = await rewriteText(text, style);
     
     return NextResponse.json({ rewrittenText });
   } catch (error) {

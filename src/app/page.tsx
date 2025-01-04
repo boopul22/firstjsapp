@@ -7,7 +7,7 @@ import { History } from '@/components/History';
 import { StatsChart } from '@/components/StatsChart';
 import { calculateStats, type UsageStats } from '@/utils/stats';
 import { Tabs } from '@/components/Tabs';
-import { supabase, type UsageRecord } from '@/utils/supabase';
+import { StyleSelector } from '@/components/StyleSelector';
 
 interface HistoryItem {
   originalText: string;
@@ -69,6 +69,7 @@ export default function Home() {
   const [dailyData, setDailyData] = useState<Record<string, DailyData>>({});
   const [currentDate, setCurrentDate] = useState(new Date().toISOString().split('T')[0]);
   const [stats, setStats] = useState<UsageStats>({ wordCount: 0, tokenCount: 0, cost: 0 });
+  const [currentStyle, setCurrentStyle] = useState<'hindi' | 'english'>('hindi');
 
   // Load data from localStorage
   useEffect(() => {
@@ -131,7 +132,7 @@ export default function Home() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ text: inputText }),
+        body: JSON.stringify({ text: inputText, style: currentStyle }),
       });
 
       if (!response.ok) {
@@ -148,22 +149,14 @@ export default function Home() {
         timestamp: new Date(),
       };
 
-      // Save to Supabase
-      const usageRecord: UsageRecord = {
-        original_text: inputText,
-        rewritten_text: data.rewrittenText,
-        word_count: currentStats.wordCount,
-        token_count: currentStats.tokenCount,
-        cost: currentStats.cost,
-      };
-
-      const { error: supabaseError } = await supabase
-        .from('usage_records')
-        .insert(usageRecord);
-
-      if (supabaseError) {
-        console.error('Error saving to Supabase:', supabaseError);
-      }
+      // Save to local storage for now
+      const usageHistory = JSON.parse(localStorage.getItem('usageHistory') || '[]');
+      usageHistory.push({
+        input: inputText,
+        output: data.rewrittenText,
+        timestamp: new Date().toISOString(),
+      });
+      localStorage.setItem('usageHistory', JSON.stringify(usageHistory));
 
       // Update daily data with new entry
       setDailyData(prev => {
@@ -255,6 +248,10 @@ export default function Home() {
                       <label htmlFor="inputText" className="mb-4 text-lg font-medium">
                         Enter text to rewrite:
                       </label>
+                      <StyleSelector
+                        currentStyle={currentStyle}
+                        onStyleChange={setCurrentStyle}
+                      />
                       <textarea
                         id="inputText"
                         className="w-full p-3 text-gray-900 bg-secondary rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-shadow duration-200 shadow-md resize-y min-h-[150px] text-lg placeholder:text-gray-500 transition-border duration-200 border border-gray-300 focus:border-blue-500"

@@ -6,10 +6,12 @@ if (!process.env.GEMINI_API_KEY) {
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
-export async function rewriteText(text: string): Promise<string> {
+type RewriteStyle = 'hindi' | 'english';
+
+export async function rewriteText(text: string, style: RewriteStyle = 'hindi'): Promise<string> {
   try {
     const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-exp' });
-    const prompt = `Make this in very natural language that normal man speck in active voice in hindi just provide the output text:\n\n${text}`;
+    const prompt = getPromptForStyle(style, text);
     
     const result = await model.generateContent(prompt);
     const response = await result.response;
@@ -17,5 +19,16 @@ export async function rewriteText(text: string): Promise<string> {
   } catch (error) {
     console.error('Error rewriting text:', error);
     throw new Error('Failed to rewrite text');
+  }
+}
+
+function getPromptForStyle(style: RewriteStyle, text: string): string {
+  switch (style) {
+    case 'hindi':
+      return `Make this in very natural language that normal man speck in active voice in hindi just provide the output text:\n\n${text}`;
+    case 'english':
+      return `Make this in very natural language that normal man speck in active voice in english just provide the output text:\n\n${text}`;
+    default:
+      return `Make this in very natural language that normal man speck in active voice in hindi just provide the output text:\n\n${text}`;
   }
 } 
