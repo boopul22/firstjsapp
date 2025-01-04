@@ -27,7 +27,7 @@ function getPromptForStyle(style: RewriteStyle, text: string): string {
     case 'hindi':
       return `Make this in very natural language that normal man speck in active voice in hindi just provide the output text:\n\n${text}`;
     case 'english':
-      return `Make this in very natural language that normal man speck in active voice in english just provide the output text:\n\n${text}`;
+      return `Rewrite Whole text from starting and Make this in very natural language that normal man speck in active voice in english just provide the output text:\n\n${text}`;
     default:
       return `Make this in very natural language that normal man speck in active voice in hindi just provide the output text:\n\n${text}`;
   }
