@@ -54,15 +54,16 @@ export function ReviewSuggestionsModal({
               leaveFrom="opacity-100 scale-100"
               leaveTo="opacity-0 scale-95"
             >
-              <Dialog.Panel className="relative w-full max-w-5xl transform overflow-hidden rounded-md bg-white p-2 shadow-md transition-all">
+              <Dialog.Panel className="relative w-full max-w-6xl min-h-[70vh] transform overflow-hidden rounded-lg bg-white p-6 shadow-xl transition-all">
                 <button
                   onClick={onClose}
-                  className="absolute right-1 top-1 rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-500"
+                  className="absolute right-4 top-4 rounded-md p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-500"
                 >
-                  <XMarkIcon className="h-4 w-4" />
+                  <XMarkIcon className="h-6 w-6" />
                 </button>
                 
-                <div className="space-y-2">
+                <div className="space-y-6 h-full overflow-y-auto pr-2">
+                  <h2 className="text-2xl font-bold text-gray-900 mb-6">Content Review</h2>
                   <ReviewSuggestions
                     suggestions={suggestions}
                     seo={seo}

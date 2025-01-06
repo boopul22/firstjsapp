@@ -1,7 +1,8 @@
 import { Editor as MonacoEditor } from '@monaco-editor/react';
-import { useCallback, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
+import { useCallback, useEffect, useRef, forwardRef } from 'react';
 import debounce from 'lodash/debounce';
 import type { editor } from 'monaco-editor';
+import type { MutableRefObject } from 'react';
 
 interface EditorProps {
   value: string;
@@ -47,12 +48,34 @@ export const Editor = forwardRef<EditorRef, EditorProps>(function Editor(
     editorRef.current = editor;
   };
 
+  // Implement ref functionality
+  useEffect(() => {
+    if (ref && typeof ref === 'object') {
+      (ref as MutableRefObject<EditorRef>).current = {
+        replaceSelectedText: (newText: string) => {
+          const editor = editorRef.current;
+          if (editor) {
+            const selection = editor.getSelection();
+            if (selection) {
+              editor.executeEdits('', [
+                {
+                  range: selection,
+                  text: newText,
+                },
+              ]);
+            }
+          }
+        },
+      };
+    }
+  }, [ref]);
+
   return (
-    <div className="h-full w-full rounded-lg bg-white shadow-sm">
+    <div className="h-full p-4">
       <MonacoEditor
         height="100%"
         defaultLanguage="markdown"
-        theme="vs-light"
+        theme="vs"
         value={value}
         onChange={(value) => value && debouncedOnChange(value)}
         onMount={handleEditorDidMount}
@@ -62,9 +85,9 @@ export const Editor = forwardRef<EditorRef, EditorProps>(function Editor(
           lineNumbers: 'off',
           folding: false,
           renderWhitespace: 'none',
-          fontSize: 18,
-          fontFamily: 'var(--font-geist-sans)',
-          quickSuggestions: { other: false, comments: false, strings: false },
+          fontSize: 16,
+          fontFamily: 'Inter, ui-sans-serif, system-ui, -apple-system, sans-serif',
+          quickSuggestions: false,
           suggestOnTriggerCharacters: false,
           parameterHints: { enabled: false },
           codeLens: false,
@@ -73,57 +96,14 @@ export const Editor = forwardRef<EditorRef, EditorProps>(function Editor(
           lineNumbersMinChars: 0,
           renderLineHighlight: 'none',
           scrollbar: {
-            vertical: 'visible',
-            horizontal: 'visible',
-            verticalScrollbarSize: 8,
-            horizontalScrollbarSize: 8,
-            alwaysConsumeMouseWheel: false
+            vertical: 'hidden',
+            horizontal: 'hidden',
+            useShadows: false,
           },
-          padding: {
-            top: 24,
-            bottom: 24
-          },
-          lineHeight: 1.8,
-          letterSpacing: 0.3,
-          rulers: [],
           overviewRulerBorder: false,
           overviewRulerLanes: 0,
-          cursorBlinking: 'smooth',
-          cursorStyle: 'line',
-          cursorWidth: 2,
-          suggest: {
-            filterGraceful: false,
-            showIcons: false,
-            showMethods: false,
-            showFunctions: false,
-            showConstructors: false,
-            showFields: false,
-            showVariables: false,
-            showClasses: false,
-            showStructs: false,
-            showInterfaces: false,
-            showModules: false,
-            showProperties: false,
-            showEvents: false,
-            showOperators: false,
-            showUnits: false,
-            showValues: false,
-            showConstants: false,
-            showEnums: false,
-            showEnumMembers: false,
-            showKeywords: false,
-            showWords: false,
-            showColors: false,
-            showFiles: false,
-            showReferences: false,
-            showFolders: false,
-            showTypeParameters: false,
-            showSnippets: false
-          },
-          wordWrapColumn: 80,
-          wrappingStrategy: 'advanced'
+          hideCursorInOverviewRuler: true,
         }}
-        className="px-4"
       />
     </div>
   );

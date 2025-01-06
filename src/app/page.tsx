@@ -1,15 +1,14 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { SparklesIcon, ChartBarIcon } from '@heroicons/react/24/outline';
+import { useState, useEffect, useRef } from 'react';
+import { ChartBarIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline';
 import { calculateStats, type UsageStats } from '@/utils/stats';
-import { FormattingToolbar } from '@/components/FormattingToolbar';
-import { ActionButtons } from '@/components/ActionButtons';
 import { DocumentList } from '@/components/DocumentList';
 import { Editor, type EditorRef } from '@/components/Editor';
-import { TextStats } from '@/components/TextStats';
 import { ReviewSuggestionsModal } from '@/components/ReviewSuggestionsModal';
 import { analyzeContent, type AnalysisResult } from '@/utils/gemini';
+import { ActionButtons } from '@/components/ActionButtons';
+import { FormattingToolbar } from '@/components/FormattingToolbar';
 
 interface HistoryItem {
   originalText: string;
@@ -36,7 +35,7 @@ export default function Home() {
   const [error, setError] = useState('');
   const [dailyData, setDailyData] = useState<Record<string, DailyData>>({});
   const [currentDate] = useState(new Date().toISOString().split('T')[0]);
-  const [currentStyle, setCurrentStyle] = useState<'hindi' | 'english'>('hindi');
+  const [showStats, setShowStats] = useState(false);
   const [documents, setDocuments] = useState<Document[]>([
     {
       id: '1',
@@ -47,12 +46,6 @@ export default function Home() {
   ]);
   const [currentDocumentId, setCurrentDocumentId] = useState('1');
   const editorRef = useRef<EditorRef>(null);
-  const [suggestions, setSuggestions] = useState({
-    correctness: 0,
-    clarity: 0,
-    engagement: 0,
-    delivery: 0,
-  });
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult>({
     suggestions: {
       correctness: 0,
@@ -182,15 +175,6 @@ export default function Home() {
 
     setIsAnalyzing(true);
     try {
-      // Update suggestions based on word count
-      const wordCount = inputText.trim().split(/\s+/).length;
-      setSuggestions({
-        correctness: Math.min(wordCount / 100, 1),
-        clarity: Math.min(wordCount / 80, 1),
-        engagement: Math.min(wordCount / 120, 1),
-        delivery: Math.min(wordCount / 90, 1),
-      });
-
       // Get AI analysis
       const result = await analyzeContent(inputText);
       setAnalysisResult(result);
@@ -202,16 +186,12 @@ export default function Home() {
     }
   };
 
-  const currentDocument = documents.find((d) => d.id === currentDocumentId);
-
   const handleHindiRewrite = async () => {
     if (!inputText.trim()) {
-      setError('Please enter some text to translate to Hindi');
       return;
     }
 
     setIsLoading(true);
-    setError('');
 
     try {
       const currentStats = calculateStats(inputText);
@@ -237,9 +217,8 @@ export default function Home() {
       );
 
       updateStats(currentStats, inputText, translatedText);
-    } catch (error) {
-      console.error('Error:', error);
-      setError('Failed to translate to Hindi. Please try again.');
+    } catch (err) {
+      console.error('Error:', err);
     } finally {
       setIsLoading(false);
     }
@@ -318,63 +297,72 @@ export default function Home() {
   };
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      <div className="w-64 border-r bg-white">
-        <DocumentList
-          documents={documents}
-          currentDocument={currentDocumentId}
-          onDocumentSelect={handleDocumentSelect}
-          onNewDocument={handleNewDocument}
-          onRenameDocument={handleRenameDocument}
-        />
-      </div>
-      <div className="flex-1 flex">
-        <div className="flex-1 flex flex-col">
-          <div className="p-4 border-b">
-            <FormattingToolbar onFormatClick={() => {}} />
+    <main className="h-screen p-1 max-w-[1920px] mx-auto flex flex-col">
+      <div className="flex flex-row gap-1 flex-1 h-full overflow-hidden">
+        <div className="w-64 flex-shrink-0 bg-white rounded-lg shadow-sm border p-1">
+          <DocumentList
+            documents={documents}
+            currentDocument={currentDocumentId}
+            onDocumentSelect={handleDocumentSelect}
+            onNewDocument={handleNewDocument}
+            onRenameDocument={handleRenameDocument}
+          />
+        </div>
+        
+        <div className="flex-1 flex flex-col gap-1 min-w-0">
+          <div className="flex flex-row gap-1 items-center justify-between bg-white rounded-lg shadow-sm border p-1">
+            <FormattingToolbar />
+            <div className="flex gap-1">
+              <button
+                onClick={handleAnalyzeContent}
+                disabled={isAnalyzing}
+                className={`flex items-center gap-1 px-2 py-1 text-sm font-medium rounded-md ${
+                  isAnalyzing 
+                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
+                    : 'text-gray-700 bg-white hover:bg-gray-50'
+                } border border-gray-300 transition-colors`}
+              >
+                <MagnifyingGlassIcon className={`h-4 w-4 ${isAnalyzing ? 'animate-spin' : ''}`} />
+                <span className="hidden sm:inline">{isAnalyzing ? 'Analyzing...' : 'Review'}</span>
+              </button>
+              <button
+                onClick={() => setShowStats(true)}
+                className="flex items-center gap-1 px-2 py-1 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 border border-gray-300 transition-colors"
+              >
+                <ChartBarIcon className="h-4 w-4" />
+                <span className="hidden sm:inline">Stats</span>
+              </button>
+            </div>
           </div>
-          <div className="flex-1 p-4">
-            <Editor
-              ref={editorRef}
-              value={inputText}
-              onChange={handleInputChange}
+
+          <div className="flex-1 bg-white rounded-lg shadow-sm border overflow-hidden">
+            <div className="h-full">
+              <Editor
+                ref={editorRef}
+                value={inputText}
+                onChange={handleInputChange}
+                onSave={handleEnglishRewrite}
+              />
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg shadow-sm border p-1">
+            <ActionButtons
+              onHindi={handleHindiRewrite}
+              onEnglish={handleEnglishRewrite}
+              isLoading={isLoading}
             />
           </div>
-          <div className="p-4 border-t">
-            <TextStats text={inputText} />
-          </div>
-        </div>
-        <div className="w-64 border-l bg-white p-4 space-y-4">
-          <ActionButtons
-            onHindi={handleHindiRewrite}
-            onEnglish={handleEnglishRewrite}
-            isLoading={isLoading}
-            stats={dailyData[currentDate]?.stats}
-          />
-          <div>
-            <button
-              onClick={handleAnalyzeContent}
-              disabled={isAnalyzing}
-              className="w-full flex items-center justify-between px-3 py-2 bg-gray-50 text-gray-600 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <div className="flex items-center space-x-2">
-                <ChartBarIcon className="w-4 h-4" />
-                <span>{isAnalyzing ? 'Analyzing...' : 'Analyze Content'}</span>
-              </div>
-              {isAnalyzing && (
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600"></div>
-              )}
-            </button>
-          </div>
-          <ReviewSuggestionsModal
-            isOpen={isReviewModalOpen}
-            onClose={() => setIsReviewModalOpen(false)}
-            suggestions={analysisResult.suggestions}
-            seo={analysisResult.seo}
-            analysis={analysisResult.analysis}
-          />
         </div>
       </div>
-    </div>
+
+      <ReviewSuggestionsModal
+        isOpen={isReviewModalOpen}
+        onClose={() => setIsReviewModalOpen(false)}
+        suggestions={analysisResult.suggestions}
+        seo={analysisResult.seo}
+        analysis={analysisResult.analysis}
+      />
+    </main>
   );
 }
