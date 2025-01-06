@@ -562,7 +562,7 @@ export default function Home() {
   return (
     <div className="flex h-screen bg-gray-50">
       {/* Left Sidebar - Document List */}
-      <div className="w-52 border-r border-gray-200 bg-white">
+      <div className="w-52 border-r border-gray-200 bg-white p-4">
         <DocumentList
           documents={documents}
           currentDocument={currentDocumentId}
@@ -571,8 +571,8 @@ export default function Home() {
           onRenameDocument={handleRenameDocument}
         />
       </div>
-
-      {/* Main Content Area */}
+      
+      {/* Main content */}
       <div className="flex-1 flex flex-col">
         {/* Header with document title and stats */}
         <div className="border-b border-gray-200 bg-white p-4">
@@ -650,16 +650,16 @@ export default function Home() {
           )}
         </div>
       </div>
-
-      {/* Right Sidebar - Actions */}
-      <div className="w-64 border-l border-gray-200 bg-white">
-        <div className="p-4 border-b border-gray-200">
-          <div className="flex items-center justify-between">
+      
+      {/* Right Sidebar */}
+      <div className="w-64 border-l border-gray-200 bg-white p-4">
+        <div className="border-b border-gray-200">
+          <div className="flex items-center justify-between mb-4">
             <span className="text-sm font-medium">Actions</span>
             <span className="text-xs text-gray-500">78</span>
           </div>
         </div>
-        <div className="p-4">
+        <div className="mt-4">
           <ActionButtons
             onHindi={handleHindiRewrite}
             onEnglish={handleEnglishRewrite}
