@@ -9,6 +9,7 @@ import { ReviewSuggestionsModal } from '@/components/ReviewSuggestionsModal';
 import { analyzeContent, type AnalysisResult } from '@/utils/gemini';
 import { ActionButtons } from '@/components/ActionButtons';
 import { FormattingToolbar } from '@/components/FormattingToolbar';
+import { StatsModal } from '@/components/StatsModal';
 
 interface HistoryItem {
   originalText: string;
@@ -362,6 +363,12 @@ export default function Home() {
         suggestions={analysisResult.suggestions}
         seo={analysisResult.seo}
         analysis={analysisResult.analysis}
+      />
+
+      <StatsModal
+        isOpen={showStats}
+        onClose={() => setShowStats(false)}
+        stats={dailyData[currentDate]?.stats || { wordCount: 0, tokenCount: 0, cost: 0 }}
       />
     </main>
   );
