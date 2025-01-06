@@ -29,12 +29,10 @@ interface Document {
 
 export default function Home() {
   const [inputText, setInputText] = useState('');
-  const [outputText, setOutputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [dailyData, setDailyData] = useState<Record<string, DailyData>>({});
-  const [currentDate, setCurrentDate] = useState(new Date().toISOString().split('T')[0]);
-  const [stats, setStats] = useState<UsageStats>({ wordCount: 0, tokenCount: 0, cost: 0 });
+  const [currentDate] = useState(new Date().toISOString().split('T')[0]);
   const [currentStyle, setCurrentStyle] = useState<'hindi' | 'english'>('hindi');
   const [documents, setDocuments] = useState<Document[]>([
     {
@@ -83,15 +81,6 @@ export default function Home() {
     }
   }, [dailyData]);
 
-  // Update stats when date or data changes
-  useEffect(() => {
-    if (dailyData[currentDate]) {
-      setStats(dailyData[currentDate].stats);
-    } else {
-      setStats({ wordCount: 0, tokenCount: 0, cost: 0 });
-    }
-  }, [dailyData, currentDate]);
-
   // Update documents from localStorage
   useEffect(() => {
     const savedDocuments = localStorage.getItem('documents');
@@ -105,6 +94,11 @@ export default function Home() {
     }
   }, []);
 
+  // Save documents to localStorage whenever they change
+  useEffect(() => {
+    localStorage.setItem('documents', JSON.stringify(documents));
+  }, [documents]);
+
   const handleNewDocument = () => {
     const newDoc: Document = {
       id: Date.now().toString(),
@@ -115,7 +109,6 @@ export default function Home() {
     setDocuments([...documents, newDoc]);
     setCurrentDocumentId(newDoc.id);
     setInputText('');
-    setOutputText('');
   };
 
   const handleDocumentSelect = (id: string) => {
@@ -123,7 +116,6 @@ export default function Home() {
     if (doc) {
       setCurrentDocumentId(id);
       setInputText(doc.content);
-      setOutputText('');
     }
   };
 
@@ -172,7 +164,6 @@ export default function Home() {
       const data = await response.json();
       const translatedText = data.rewrittenText;
       setInputText(translatedText);
-      setOutputText(translatedText);
 
       // Update document and stats
       setDocuments(
@@ -214,7 +205,6 @@ export default function Home() {
       const data = await response.json();
       const translatedText = data.rewrittenText;
       setInputText(translatedText);
-      setOutputText(translatedText);
 
       // Update document and stats
       setDocuments(
@@ -253,7 +243,8 @@ export default function Home() {
       if (!response.ok) throw new Error('Failed to adjust tone');
 
       const data = await response.json();
-      setOutputText(data.rewrittenText);
+      const rewrittenText = data.rewrittenText;
+      setInputText(rewrittenText);
     } catch (error) {
       console.error('Error:', error);
       setError('Failed to adjust tone. Please try again.');
@@ -293,10 +284,7 @@ export default function Home() {
     });
   };
 
-  const handleSelectionChange = useCallback((
-    selection: string,
-    range?: { startLineNumber: number; startColumn: number; endLineNumber: number; endColumn: number }
-  ) => {
+  const handleSelectionChange = useCallback((selection: string) => {
     setSelectedText(selection.trim() ? selection : '');
   }, []);
 

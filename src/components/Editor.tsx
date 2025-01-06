@@ -25,9 +25,11 @@ export const Editor = forwardRef<EditorRef, EditorProps>(function Editor(
 
   // Debounce the onChange handler to prevent too many updates
   const debouncedOnChange = useCallback(
-    debounce((value: string) => {
-      onChange(value);
-    }, 500),
+    (value: string) => {
+      debounce((v: string) => {
+        onChange(v);
+      }, 500)(value);
+    },
     [onChange]
   );
 
