@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { ArrowPathIcon, SparklesIcon } from '@heroicons/react/24/outline';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { History } from '@/components/History';
@@ -11,6 +11,8 @@ import { StyleSelector } from '@/components/StyleSelector';
 import { FormattingToolbar } from '@/components/FormattingToolbar';
 import { ActionButtons } from '@/components/ActionButtons';
 import { DocumentList } from '@/components/DocumentList';
+import { Editor, type EditorRef } from '@/components/Editor';
+import { TextStats } from '@/components/TextStats';
 
 interface HistoryItem {
   originalText: string;
@@ -91,6 +93,15 @@ export default function Home() {
     },
   ]);
   const [currentDocumentId, setCurrentDocumentId] = useState('1');
+  const [selectedText, setSelectedText] = useState('');
+  const [selectionCoords, setSelectionCoords] = useState<{ x: number; y: number } | null>(null);
+  const [selectedRange, setSelectedRange] = useState<{
+    startLineNumber: number;
+    startColumn: number;
+    endLineNumber: number;
+    endColumn: number;
+  } | null>(null);
+  const editorRef = useRef<EditorRef>(null);
 
   // Load data from localStorage
   useEffect(() => {
@@ -449,10 +460,109 @@ export default function Home() {
     }
   };
 
+  // Handle text selection from the editor
+  const handleSelectionChange = useCallback((
+    selection: string,
+    range?: { startLineNumber: number; startColumn: number; endLineNumber: number; endColumn: number }
+  ) => {
+    if (selection.trim()) {
+      setSelectedText(selection);
+      setSelectedRange(range || null);
+    } else {
+      setSelectedText('');
+      setSelectedRange(null);
+    }
+  }, []);
+
+  /**
+   * Handles rewriting of selected text
+   * This function is specifically designed for rewriting portions of text while maintaining context
+   */
+  const handleRewriteSelection = async () => {
+    // Validate selected text
+    if (!selectedText.trim()) {
+      return;
+    }
+
+    setIsLoading(true);
+    setError('');
+
+    try {
+      // Make API request with isSelectedText flag for specialized handling
+      const response = await fetch('/api/rewrite', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          text: selectedText, 
+          style: currentStyle,
+          isSelectedText: true // Flag to use specialized prompt for selected text
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to rewrite text');
+      }
+
+      const data = await response.json();
+      const rewrittenText = data.rewrittenText;
+
+      // Create history item for the selection
+      const historyItem: HistoryItem = {
+        originalText: selectedText,
+        rewrittenText: rewrittenText,
+        timestamp: new Date(),
+      };
+
+      // Update statistics for the selected portion only
+      const currentStats = calculateStats(selectedText);
+      setDailyData(prev => {
+        const updatedData = { ...prev };
+        if (!updatedData[currentDate]) {
+          updatedData[currentDate] = {
+            history: [],
+            stats: currentStats
+          };
+        }
+
+        // Accumulate stats for the day
+        updatedData[currentDate].stats = {
+          wordCount: (updatedData[currentDate].stats.wordCount || 0) + currentStats.wordCount,
+          tokenCount: (updatedData[currentDate].stats.tokenCount || 0) + currentStats.tokenCount,
+          cost: (updatedData[currentDate].stats.cost || 0) + currentStats.cost,
+        };
+
+        // Add new history item at the beginning of the array
+        updatedData[currentDate].history = [
+          historyItem,
+          ...(updatedData[currentDate].history || [])
+        ];
+
+        return updatedData;
+      });
+
+      // Replace the selected text using Monaco editor's API
+      if (editorRef.current) {
+        editorRef.current.replaceSelectedText(rewrittenText);
+      }
+
+      // Clear the selection after successful rewrite
+      setSelectedText('');
+      setSelectedRange(null);
+
+    } catch (error) {
+      console.error('Error:', error);
+      setError('Failed to rewrite selected text. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div className="flex h-screen bg-gray-50">
-      {/* Left Sidebar */}
-      <div className="w-64 border-r border-gray-200 bg-white">
+      {/* Left Sidebar - Document List */}
+      <div className="w-52 border-r border-gray-200 bg-white">
         <DocumentList
           documents={documents}
           currentDocument={currentDocumentId}
@@ -462,33 +572,87 @@ export default function Home() {
         />
       </div>
 
-      {/* Main Content */}
+      {/* Main Content Area */}
       <div className="flex-1 flex flex-col">
+        {/* Header with document title and stats */}
         <div className="border-b border-gray-200 bg-white p-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
               <h1 className="text-xl font-semibold">{currentDocument?.title}</h1>
               <FormattingToolbar onFormatClick={handleFormatClick} />
             </div>
+            <TextStats text={inputText} />
           </div>
         </div>
-        <div className="flex-1 p-6 relative">
-          <textarea
+
+        {/* Editor Area */}
+        <div className="flex-1 p-4 relative">
+          <Editor
             value={inputText}
-            onChange={(e) => handleInputChange(e.target.value)}
-            className="w-full h-full p-4 text-lg resize-none focus:outline-none font-serif"
-            placeholder="Start typing or paste your text here..."
+            onChange={handleInputChange}
+            onSelectionChange={handleSelectionChange}
+            ref={editorRef}
+            onSave={() => {
+              const doc = documents.find((d) => d.id === currentDocumentId);
+              if (doc) {
+                handleRenameDocument(doc.id, doc.title);
+              }
+            }}
           />
+
+          {/* Fixed Position Rewrite Options - Appears when text is selected */}
+          {selectedText && !isLoading && (
+            <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50 animate-fade-up">
+              <div className="bg-white border border-gray-200 rounded-lg shadow-lg py-1.5 px-2 flex items-center space-x-2">
+                <button
+                  onClick={() => {
+                    setCurrentStyle('hindi');
+                    handleRewriteSelection();
+                  }}
+                  className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 px-3 py-1 rounded-md transition-colors duration-200 flex items-center space-x-1.5 text-sm font-medium"
+                  disabled={isLoading}
+                >
+                  <SparklesIcon className="w-4 h-4" />
+                  <span>Rewrite in Hindi</span>
+                </button>
+                <div className="w-px h-4 bg-gray-200"></div>
+                <button
+                  onClick={() => {
+                    setCurrentStyle('english');
+                    handleRewriteSelection();
+                  }}
+                  className="text-gray-600 hover:text-gray-700 hover:bg-gray-50 px-3 py-1 rounded-md transition-colors duration-200 flex items-center space-x-1.5 text-sm font-medium"
+                  disabled={isLoading}
+                >
+                  <SparklesIcon className="w-4 h-4" />
+                  <span>Rewrite in English</span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Loading Indicator */}
+          {isLoading && (
+            <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50">
+              <div className="bg-white border border-gray-200 rounded-lg shadow-lg py-1.5 px-4 flex items-center space-x-2">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                <div className="text-sm text-gray-600">Rewriting...</div>
+              </div>
+            </div>
+          )}
+
+          {/* Error Message */}
           {error && (
-            <div className="absolute bottom-4 right-4 bg-red-100 text-red-600 px-4 py-2 rounded-lg">
-              {error}
+            <div className="fixed bottom-20 right-6 bg-red-50 text-red-600 px-3 py-1.5 rounded-lg text-sm font-medium shadow-lg z-50 flex items-center space-x-1.5">
+              <div className="w-1.5 h-1.5 rounded-full bg-red-600"></div>
+              <span>{error}</span>
             </div>
           )}
         </div>
       </div>
 
-      {/* Right Sidebar */}
-      <div className="w-80 border-l border-gray-200 bg-white">
+      {/* Right Sidebar - Actions */}
+      <div className="w-64 border-l border-gray-200 bg-white">
         <div className="p-4 border-b border-gray-200">
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium">Actions</span>

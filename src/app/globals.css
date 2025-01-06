@@ -119,3 +119,19 @@ p {
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1), 0 8px 16px rgba(0, 0, 0, 0.1);
   }
 }
+
+/* Add animation for rewrite buttons */
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 10px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+.animate-fade-up {
+  animation: fade-up 0.2s ease-out forwards;
+}
