@@ -2,19 +2,26 @@ interface FormattingToolbarProps {
   onFormatClick?: (format: string) => void;
 }
 
+interface FormatButton {
+  label: string;
+  format?: string;
+  className?: string;
+  type?: 'divider';
+}
+
 export function FormattingToolbar({ onFormatClick }: FormattingToolbarProps) {
-  const formatButtons = [
+  const formatButtons: FormatButton[] = [
     { label: 'H₁', format: 'h1' },
     { label: 'H₂', format: 'h2' },
     { label: 'H₃', format: 'h3' },
-    { type: 'divider' },
+    { type: 'divider', label: '' },
     { label: 'B', format: 'bold', className: 'font-bold' },
     { label: 'I', format: 'italic', className: 'italic' },
     { label: 'U', format: 'underline', className: 'underline' },
-    { type: 'divider' },
+    { type: 'divider', label: '' },
     { label: '•', format: 'bullet' },
     { label: '1.', format: 'number' },
-    { type: 'divider' },
+    { type: 'divider', label: '' },
     { label: '@', format: 'mention' },
   ];
 
@@ -26,7 +33,7 @@ export function FormattingToolbar({ onFormatClick }: FormattingToolbarProps) {
         ) : (
           <button
             key={button.format}
-            onClick={() => onFormatClick?.(button.format)}
+            onClick={() => button.format && onFormatClick?.(button.format)}
             className={`px-2 py-1 text-sm text-gray-600 hover:bg-gray-100 rounded ${button.className || ''}`}
           >
             {button.label}
