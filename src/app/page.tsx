@@ -338,6 +338,11 @@ export default function Home() {
 
           <div className="flex-1 bg-white rounded-lg shadow-sm border overflow-hidden">
             <div className="h-full">
+              {error && (
+                <div className="p-2 bg-red-50 text-red-600 text-sm border-b border-red-100">
+                  {error}
+                </div>
+              )}
               <Editor
                 ref={editorRef}
                 value={inputText}
