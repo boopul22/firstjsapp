@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
-import { rewriteText, rewriteSelectedText } from '@/utils/gemini';
+import { rewriteText } from '@/utils/gemini';
 
 export async function POST(request: Request) {
   try {
-    const { text, style = 'hindi', isSelectedText = false } = await request.json();
+    const { text, style = 'hindi' } = await request.json();
 
     if (!text) {
       return NextResponse.json(
@@ -12,7 +12,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const rewrittenText = await (isSelectedText ? rewriteSelectedText(text, style) : rewriteText(text, style));
+    const rewrittenText = await rewriteText(text, style);
     
     return NextResponse.json({ rewrittenText });
   } catch (error) {

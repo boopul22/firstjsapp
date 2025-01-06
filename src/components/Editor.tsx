@@ -7,10 +7,6 @@ interface EditorProps {
   value: string;
   onChange: (value: string) => void;
   onSave?: () => void;
-  onSelectionChange?: (
-    selection: string,
-    range?: { startLineNumber: number; startColumn: number; endLineNumber: number; endColumn: number }
-  ) => void;
 }
 
 export interface EditorRef {
@@ -18,7 +14,7 @@ export interface EditorRef {
 }
 
 export const Editor = forwardRef<EditorRef, EditorProps>(function Editor(
-  { value, onChange, onSave, onSelectionChange },
+  { value, onChange, onSave },
   ref
 ) {
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
@@ -33,55 +29,6 @@ export const Editor = forwardRef<EditorRef, EditorProps>(function Editor(
     [onChange]
   );
 
-  // Expose methods through ref
-  useImperativeHandle(ref, () => ({
-    replaceSelectedText: (newText: string) => {
-      if (!editorRef.current) return;
-      
-      const editor = editorRef.current;
-      const selection = editor.getSelection();
-      const model = editor.getModel();
-      
-      if (!selection || !model) return;
-
-      // Get the original text with its formatting
-      const originalText = model.getValueInRange(selection);
-      
-      // If original text had leading/trailing spaces, preserve them
-      const leadingSpaces = originalText.match(/^\s*/)?.[0] || '';
-      const trailingSpaces = originalText.match(/\s*$/)?.[0] || '';
-
-      // Reconstruct the text with original formatting
-      const finalText = leadingSpaces + newText.trim() + trailingSpaces;
-
-      editor.executeEdits('rewrite', [{
-        range: selection,
-        text: finalText,
-        forceMoveMarkers: true
-      }]);
-
-      // Trigger onChange after edit
-      const newValue = editor.getValue();
-      debouncedOnChange(newValue);
-    }
-  }), [debouncedOnChange]);
-
-  // Handle selection changes
-  const handleEditorDidMount = (editor: editor.IStandaloneCodeEditor) => {
-    editorRef.current = editor;
-    editor.onDidChangeCursorSelection((e) => {
-      const model = editor.getModel();
-      if (model) {
-        const selection = model.getValueInRange(e.selection);
-        if (selection && onSelectionChange) {
-          onSelectionChange(selection, e.selection);
-        } else if (onSelectionChange) {
-          onSelectionChange('');
-        }
-      }
-    });
-  };
-
   // Handle keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -94,6 +41,11 @@ export const Editor = forwardRef<EditorRef, EditorProps>(function Editor(
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [onSave]);
+
+  // Handle editor mount
+  const handleEditorDidMount = (editor: editor.IStandaloneCodeEditor) => {
+    editorRef.current = editor;
+  };
 
   return (
     <div className="h-full w-full rounded-lg bg-white shadow-sm">
@@ -110,10 +62,9 @@ export const Editor = forwardRef<EditorRef, EditorProps>(function Editor(
           lineNumbers: 'off',
           folding: false,
           renderWhitespace: 'none',
-          scrollBeyondLastLine: false,
           fontSize: 18,
           fontFamily: 'var(--font-geist-sans)',
-          quickSuggestions: false,
+          quickSuggestions: { other: false, comments: false, strings: false },
           suggestOnTriggerCharacters: false,
           parameterHints: { enabled: false },
           codeLens: false,
@@ -140,7 +91,35 @@ export const Editor = forwardRef<EditorRef, EditorProps>(function Editor(
           cursorBlinking: 'smooth',
           cursorStyle: 'line',
           cursorWidth: 2,
-          contextmenu: false,
+          suggest: {
+            filterGraceful: false,
+            showIcons: false,
+            showMethods: false,
+            showFunctions: false,
+            showConstructors: false,
+            showFields: false,
+            showVariables: false,
+            showClasses: false,
+            showStructs: false,
+            showInterfaces: false,
+            showModules: false,
+            showProperties: false,
+            showEvents: false,
+            showOperators: false,
+            showUnits: false,
+            showValues: false,
+            showConstants: false,
+            showEnums: false,
+            showEnumMembers: false,
+            showKeywords: false,
+            showWords: false,
+            showColors: false,
+            showFiles: false,
+            showReferences: false,
+            showFolders: false,
+            showTypeParameters: false,
+            showSnippets: false
+          },
           wordWrapColumn: 80,
           wrappingStrategy: 'advanced'
         }}

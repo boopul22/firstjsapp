@@ -1,21 +1,14 @@
 import { SparklesIcon } from '@heroicons/react/24/outline';
+import { UsageStats, formatCost } from '@/utils/stats';
 
 interface ActionButtonsProps {
   onHindi: () => void;
   onEnglish: () => void;
-  onToneChange: (tone: string) => void;
   isLoading?: boolean;
+  stats?: UsageStats;
 }
 
-export function ActionButtons({ onHindi, onEnglish, onToneChange, isLoading }: ActionButtonsProps) {
-  const toneButtons = [
-    { label: 'Anticipatory', value: 'anticipatory', emoji: '🌟' },
-    { label: 'Assertive', value: 'assertive', emoji: '💪' },
-    { label: 'Compassionate', value: 'compassionate', emoji: '❤️' },
-    { label: 'Confident', value: 'confident', emoji: '😊' },
-    { label: 'Constructive', value: 'constructive', emoji: '🛠️' },
-  ];
-
+export function ActionButtons({ onHindi, onEnglish, isLoading, stats }: ActionButtonsProps) {
   return (
     <div className="space-y-4">
       <div>
@@ -42,22 +35,6 @@ export function ActionButtons({ onHindi, onEnglish, onToneChange, isLoading }: A
             </div>
             <span className="text-xs">⌘E</span>
           </button>
-        </div>
-      </div>
-
-      <div>
-        <h3 className="text-sm font-medium mb-2">ADJUST TONE</h3>
-        <div className="grid grid-cols-2 gap-2">
-          {toneButtons.map((button) => (
-            <button
-              key={button.value}
-              onClick={() => onToneChange(button.value)}
-              className="flex items-center space-x-2 px-3 py-2 bg-gray-50 text-gray-600 rounded-lg hover:bg-gray-100"
-            >
-              <span>{button.emoji}</span>
-              <span>{button.label}</span>
-            </button>
-          ))}
         </div>
       </div>
     </div>

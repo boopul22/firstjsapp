@@ -1,13 +1,15 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { SparklesIcon } from '@heroicons/react/24/outline';
+import { SparklesIcon, ChartBarIcon } from '@heroicons/react/24/outline';
 import { calculateStats, type UsageStats } from '@/utils/stats';
 import { FormattingToolbar } from '@/components/FormattingToolbar';
 import { ActionButtons } from '@/components/ActionButtons';
 import { DocumentList } from '@/components/DocumentList';
 import { Editor, type EditorRef } from '@/components/Editor';
 import { TextStats } from '@/components/TextStats';
+import { ReviewSuggestionsModal } from '@/components/ReviewSuggestionsModal';
+import { analyzeContent, type AnalysisResult } from '@/utils/gemini';
 
 interface HistoryItem {
   originalText: string;
@@ -30,6 +32,7 @@ interface Document {
 export default function Home() {
   const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [error, setError] = useState('');
   const [dailyData, setDailyData] = useState<Record<string, DailyData>>({});
   const [currentDate] = useState(new Date().toISOString().split('T')[0]);
@@ -43,8 +46,27 @@ export default function Home() {
     },
   ]);
   const [currentDocumentId, setCurrentDocumentId] = useState('1');
-  const [selectedText, setSelectedText] = useState('');
   const editorRef = useRef<EditorRef>(null);
+  const [suggestions, setSuggestions] = useState({
+    correctness: 0,
+    clarity: 0,
+    engagement: 0,
+    delivery: 0,
+  });
+  const [analysisResult, setAnalysisResult] = useState<AnalysisResult>({
+    suggestions: {
+      correctness: 0,
+      clarity: 0,
+      engagement: 0,
+      delivery: 0,
+    },
+    seo: {
+      score: 0,
+      suggestions: [],
+    },
+    analysis: '',
+  });
+  const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
 
   // Load data from localStorage
   useEffect(() => {
@@ -140,6 +162,46 @@ export default function Home() {
     );
   };
 
+  const handleAnalyzeContent = async () => {
+    if (!inputText.trim()) {
+      setAnalysisResult({
+        suggestions: {
+          correctness: 0,
+          clarity: 0,
+          engagement: 0,
+          delivery: 0,
+        },
+        seo: {
+          score: 0,
+          suggestions: [],
+        },
+        analysis: '',
+      });
+      return;
+    }
+
+    setIsAnalyzing(true);
+    try {
+      // Update suggestions based on word count
+      const wordCount = inputText.trim().split(/\s+/).length;
+      setSuggestions({
+        correctness: Math.min(wordCount / 100, 1),
+        clarity: Math.min(wordCount / 80, 1),
+        engagement: Math.min(wordCount / 120, 1),
+        delivery: Math.min(wordCount / 90, 1),
+      });
+
+      // Get AI analysis
+      const result = await analyzeContent(inputText);
+      setAnalysisResult(result);
+      setIsReviewModalOpen(true);
+    } catch (error) {
+      console.error('Error analyzing text:', error);
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
   const currentDocument = documents.find((d) => d.id === currentDocumentId);
 
   const handleHindiRewrite = async () => {
@@ -224,35 +286,6 @@ export default function Home() {
     }
   };
 
-  const handleToneChange = async (tone: string) => {
-    if (!inputText.trim()) {
-      setError('Please enter some text to adjust tone');
-      return;
-    }
-
-    setIsLoading(true);
-    setError('');
-
-    try {
-      const response = await fetch('/api/rewrite', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: inputText, action: 'tone', tone }),
-      });
-
-      if (!response.ok) throw new Error('Failed to adjust tone');
-
-      const data = await response.json();
-      const rewrittenText = data.rewrittenText;
-      setInputText(rewrittenText);
-    } catch (error) {
-      console.error('Error:', error);
-      setError('Failed to adjust tone. Please try again.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   const updateStats = (currentStats: UsageStats, originalText: string, rewrittenText: string) => {
     const historyItem: HistoryItem = {
       originalText,
@@ -284,52 +317,9 @@ export default function Home() {
     });
   };
 
-  const handleSelectionChange = useCallback((selection: string) => {
-    setSelectedText(selection.trim() ? selection : '');
-  }, []);
-
-  const handleRewriteSelection = async () => {
-    if (!selectedText.trim()) return;
-
-    setIsLoading(true);
-    setError('');
-
-    try {
-      const response = await fetch('/api/rewrite', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          text: selectedText, 
-          style: currentStyle,
-          isSelectedText: true
-        }),
-      });
-
-      if (!response.ok) throw new Error('Failed to rewrite text');
-
-      const data = await response.json();
-      const rewrittenText = data.rewrittenText;
-
-      const currentStats = calculateStats(selectedText);
-      updateStats(currentStats, selectedText, rewrittenText);
-
-      if (editorRef.current) {
-        editorRef.current.replaceSelectedText(rewrittenText);
-      }
-
-      setSelectedText('');
-    } catch (error) {
-      console.error('Error:', error);
-      setError('Failed to rewrite selected text. Please try again.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   return (
     <div className="flex h-screen bg-gray-50">
-      {/* Left Sidebar - Document List */}
-      <div className="w-52 border-r border-gray-200 bg-white p-4">
+      <div className="w-64 border-r bg-white">
         <DocumentList
           documents={documents}
           currentDocument={currentDocumentId}
@@ -338,100 +328,50 @@ export default function Home() {
           onRenameDocument={handleRenameDocument}
         />
       </div>
-      
-      {/* Main content */}
-      <div className="flex-1 flex flex-col">
-        {/* Header with document title and stats */}
-        <div className="border-b border-gray-200 bg-white p-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <h1 className="text-xl font-semibold">{currentDocument?.title}</h1>
-              <FormattingToolbar onFormatClick={() => {}} />
-            </div>
+      <div className="flex-1 flex">
+        <div className="flex-1 flex flex-col">
+          <div className="p-4 border-b">
+            <FormattingToolbar onFormatClick={() => {}} />
+          </div>
+          <div className="flex-1 p-4">
+            <Editor
+              ref={editorRef}
+              value={inputText}
+              onChange={handleInputChange}
+            />
+          </div>
+          <div className="p-4 border-t">
             <TextStats text={inputText} />
           </div>
         </div>
-
-        {/* Editor Area */}
-        <div className="flex-1 p-4 relative">
-          <Editor
-            value={inputText}
-            onChange={handleInputChange}
-            onSelectionChange={handleSelectionChange}
-            ref={editorRef}
-            onSave={() => {
-              const doc = documents.find((d) => d.id === currentDocumentId);
-              if (doc) {
-                handleRenameDocument(doc.id, doc.title);
-              }
-            }}
-          />
-
-          {/* Fixed Position Rewrite Options - Appears when text is selected */}
-          {selectedText && !isLoading && (
-            <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50 animate-fade-up">
-              <div className="bg-white border border-gray-200 rounded-lg shadow-lg py-1.5 px-2 flex items-center space-x-2">
-                <button
-                  onClick={() => {
-                    setCurrentStyle('hindi');
-                    handleRewriteSelection();
-                  }}
-                  className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 px-3 py-1 rounded-md transition-colors duration-200 flex items-center space-x-1.5 text-sm font-medium"
-                  disabled={isLoading}
-                >
-                  <SparklesIcon className="w-4 h-4" />
-                  <span>Rewrite in Hindi</span>
-                </button>
-                <div className="w-px h-4 bg-gray-200"></div>
-                <button
-                  onClick={() => {
-                    setCurrentStyle('english');
-                    handleRewriteSelection();
-                  }}
-                  className="text-gray-600 hover:text-gray-700 hover:bg-gray-50 px-3 py-1 rounded-md transition-colors duration-200 flex items-center space-x-1.5 text-sm font-medium"
-                  disabled={isLoading}
-                >
-                  <SparklesIcon className="w-4 h-4" />
-                  <span>Rewrite in English</span>
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Loading Indicator */}
-          {isLoading && (
-            <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50">
-              <div className="bg-white border border-gray-200 rounded-lg shadow-lg py-1.5 px-4 flex items-center space-x-2">
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-                <div className="text-sm text-gray-600">Rewriting...</div>
-              </div>
-            </div>
-          )}
-
-          {/* Error Message */}
-          {error && (
-            <div className="fixed bottom-20 right-6 bg-red-50 text-red-600 px-3 py-1.5 rounded-lg text-sm font-medium shadow-lg z-50 flex items-center space-x-1.5">
-              <div className="w-1.5 h-1.5 rounded-full bg-red-600"></div>
-              <span>{error}</span>
-            </div>
-          )}
-        </div>
-      </div>
-      
-      {/* Right Sidebar */}
-      <div className="w-64 border-l border-gray-200 bg-white p-4">
-        <div className="border-b border-gray-200">
-          <div className="flex items-center justify-between mb-4">
-            <span className="text-sm font-medium">Actions</span>
-            <span className="text-xs text-gray-500">78</span>
-          </div>
-        </div>
-        <div className="mt-4">
+        <div className="w-64 border-l bg-white p-4 space-y-4">
           <ActionButtons
             onHindi={handleHindiRewrite}
             onEnglish={handleEnglishRewrite}
-            onToneChange={handleToneChange}
             isLoading={isLoading}
+            stats={dailyData[currentDate]?.stats}
+          />
+          <div>
+            <button
+              onClick={handleAnalyzeContent}
+              disabled={isAnalyzing}
+              className="w-full flex items-center justify-between px-3 py-2 bg-gray-50 text-gray-600 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <div className="flex items-center space-x-2">
+                <ChartBarIcon className="w-4 h-4" />
+                <span>{isAnalyzing ? 'Analyzing...' : 'Analyze Content'}</span>
+              </div>
+              {isAnalyzing && (
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600"></div>
+              )}
+            </button>
+          </div>
+          <ReviewSuggestionsModal
+            isOpen={isReviewModalOpen}
+            onClose={() => setIsReviewModalOpen(false)}
+            suggestions={analysisResult.suggestions}
+            seo={analysisResult.seo}
+            analysis={analysisResult.analysis}
           />
         </div>
       </div>
