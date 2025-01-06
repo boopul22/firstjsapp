@@ -297,6 +297,10 @@ export default function Home() {
     });
   };
 
+  const handleFormatText = (format: string) => {
+    editorRef.current?.handleFormat(format);
+  };
+
   return (
     <main className="h-screen p-1 max-w-[1920px] mx-auto flex flex-col">
       <div className="flex flex-row gap-1 flex-1 h-full overflow-hidden">
@@ -312,7 +316,7 @@ export default function Home() {
         
         <div className="flex-1 flex flex-col gap-1 min-w-0">
           <div className="flex flex-row gap-1 items-center justify-between bg-white rounded-lg shadow-sm border p-1">
-            <FormattingToolbar />
+            <FormattingToolbar onFormatClick={handleFormatText} />
             <div className="flex gap-1">
               <button
                 onClick={handleAnalyzeContent}
