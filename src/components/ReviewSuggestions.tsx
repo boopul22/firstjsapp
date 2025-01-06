@@ -1,4 +1,4 @@
-import { CheckIcon, ChartBarIcon, LightBulbIcon, MagnifyingGlassIcon, ExclamationCircleIcon } from '@heroicons/react/24/outline';
+import { ChartBarIcon, LightBulbIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline';
 
 interface ReviewSuggestionsProps {
   suggestions: {
@@ -115,24 +115,4 @@ export function ReviewSuggestions({ suggestions, seo, analysis }: ReviewSuggesti
       )}
     </div>
   );
-}
-
-function getSEOSolution(suggestion: string): string {
-  // Map common SEO issues to specific solutions
-  if (suggestion.toLowerCase().includes('keyword')) {
-    return 'Add relevant keywords naturally in title, headings, and first paragraph';
-  }
-  if (suggestion.toLowerCase().includes('meta')) {
-    return 'Write compelling meta description with keywords (150-160 characters)';
-  }
-  if (suggestion.toLowerCase().includes('heading')) {
-    return 'Structure content with H1, H2, H3 tags in hierarchical order';
-  }
-  if (suggestion.toLowerCase().includes('length')) {
-    return 'Aim for content length of 1000+ words for comprehensive coverage';
-  }
-  if (suggestion.toLowerCase().includes('link')) {
-    return 'Add internal links to related content and authoritative external sources';
-  }
-  return 'Review and implement SEO best practices for this specific issue';
 } 
