@@ -1,13 +1,8 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { ArrowPathIcon, SparklesIcon } from '@heroicons/react/24/outline';
-import { ThemeToggle } from '@/components/ThemeToggle';
-import { History } from '@/components/History';
-import { StatsChart } from '@/components/StatsChart';
+import { SparklesIcon } from '@heroicons/react/24/outline';
 import { calculateStats, type UsageStats } from '@/utils/stats';
-import { Tabs } from '@/components/Tabs';
-import { StyleSelector } from '@/components/StyleSelector';
 import { FormattingToolbar } from '@/components/FormattingToolbar';
 import { ActionButtons } from '@/components/ActionButtons';
 import { DocumentList } from '@/components/DocumentList';
@@ -32,47 +27,6 @@ interface Document {
   lastModified: Date;
 }
 
-const SavedData = ({ data }: { data: Record<string, DailyData> }) => {
-  return (
-    <div className="p-4">
-      {Object.entries(data).length === 0 ? (
-        <p className="text-gray-500 dark:text-gray-400 text-center">No saved data available.</p>
-      ) : (
-        <div className="space-y-6">
-          {Object.entries(data)
-            .sort(([dateA], [dateB]) => new Date(dateB).getTime() - new Date(dateA).getTime())
-            .map(([date, dayData]) => (
-              <div key={date} className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow">
-                <h3 className="text-lg font-semibold mb-2">{new Date(date).toLocaleDateString()}</h3>
-                <div className="grid grid-cols-2 gap-4 mb-4 text-sm">
-                  <div>
-                    <p>Word Count: {dayData.stats.wordCount}</p>
-                    <p>Token Count: {dayData.stats.tokenCount}</p>
-                    <p>Cost: ${dayData.stats.cost.toFixed(4)}</p>
-                  </div>
-                  <div>
-                    <p>Entries: {dayData.history.length}</p>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  {dayData.history.map((item, index) => (
-                    <div key={index} className="border-t dark:border-gray-700 pt-2">
-                      <p className="text-sm text-gray-500 dark:text-gray-400">
-                        {new Date(item.timestamp).toLocaleTimeString()}
-                      </p>
-                      <p className="text-sm mt-1">Original: {item.originalText.substring(0, 100)}...</p>
-                      <p className="text-sm mt-1">Rewritten: {item.rewrittenText.substring(0, 100)}...</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ))}
-        </div>
-      )}
-    </div>
-  );
-};
-
 export default function Home() {
   const [inputText, setInputText] = useState('');
   const [outputText, setOutputText] = useState('');
@@ -82,8 +36,6 @@ export default function Home() {
   const [currentDate, setCurrentDate] = useState(new Date().toISOString().split('T')[0]);
   const [stats, setStats] = useState<UsageStats>({ wordCount: 0, tokenCount: 0, cost: 0 });
   const [currentStyle, setCurrentStyle] = useState<'hindi' | 'english'>('hindi');
-  const [formattedText, setFormattedText] = useState('');
-  const [currentTone, setCurrentTone] = useState('');
   const [documents, setDocuments] = useState<Document[]>([
     {
       id: '1',
@@ -94,13 +46,6 @@ export default function Home() {
   ]);
   const [currentDocumentId, setCurrentDocumentId] = useState('1');
   const [selectedText, setSelectedText] = useState('');
-  const [selectionCoords, setSelectionCoords] = useState<{ x: number; y: number } | null>(null);
-  const [selectedRange, setSelectedRange] = useState<{
-    startLineNumber: number;
-    startColumn: number;
-    endLineNumber: number;
-    endColumn: number;
-  } | null>(null);
   const editorRef = useRef<EditorRef>(null);
 
   // Load data from localStorage
@@ -147,23 +92,18 @@ export default function Home() {
     }
   }, [dailyData, currentDate]);
 
+  // Update documents from localStorage
   useEffect(() => {
-    // Load documents from localStorage
     const savedDocuments = localStorage.getItem('documents');
     if (savedDocuments) {
-      const parsedDocuments = JSON.parse(savedDocuments);
+      const parsedDocuments: Document[] = JSON.parse(savedDocuments);
       // Convert string dates back to Date objects
-      parsedDocuments.forEach((doc: any) => {
+      parsedDocuments.forEach((doc) => {
         doc.lastModified = new Date(doc.lastModified);
       });
       setDocuments(parsedDocuments);
     }
   }, []);
-
-  useEffect(() => {
-    // Save documents to localStorage whenever they change
-    localStorage.setItem('documents', JSON.stringify(documents));
-  }, [documents]);
 
   const handleNewDocument = () => {
     const newDoc: Document = {
@@ -199,7 +139,6 @@ export default function Home() {
 
   const handleInputChange = (text: string) => {
     setInputText(text);
-    // Update document content
     setDocuments(
       documents.map((doc) =>
         doc.id === currentDocumentId
@@ -222,32 +161,20 @@ export default function Home() {
 
     try {
       const currentStats = calculateStats(inputText);
-
       const response = await fetch('/api/rewrite', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: inputText, style: 'hindi' }),
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to translate to Hindi');
-      }
+      if (!response.ok) throw new Error('Failed to translate to Hindi');
 
       const data = await response.json();
       const translatedText = data.rewrittenText;
-      setInputText(translatedText); // Update the input text with the translation
+      setInputText(translatedText);
       setOutputText(translatedText);
 
-      // Create history item with current timestamp
-      const historyItem: HistoryItem = {
-        originalText: inputText,
-        rewrittenText: translatedText,
-        timestamp: new Date(),
-      };
-
-      // Update document content with translated text
+      // Update document and stats
       setDocuments(
         documents.map((doc) =>
           doc.id === currentDocumentId
@@ -256,32 +183,7 @@ export default function Home() {
         )
       );
 
-      // Update daily data with new entry
-      setDailyData(prev => {
-        const updatedData = { ...prev };
-        if (!updatedData[currentDate]) {
-          updatedData[currentDate] = {
-            history: [],
-            stats: currentStats
-          };
-        }
-
-        // Update stats
-        updatedData[currentDate].stats = {
-          wordCount: (updatedData[currentDate].stats.wordCount || 0) + currentStats.wordCount,
-          tokenCount: (updatedData[currentDate].stats.tokenCount || 0) + currentStats.tokenCount,
-          cost: (updatedData[currentDate].stats.cost || 0) + currentStats.cost,
-        };
-
-        // Add new history item
-        updatedData[currentDate].history = [
-          historyItem,
-          ...(updatedData[currentDate].history || [])
-        ];
-
-        return updatedData;
-      });
-
+      updateStats(currentStats, inputText, translatedText);
     } catch (error) {
       console.error('Error:', error);
       setError('Failed to translate to Hindi. Please try again.');
@@ -301,32 +203,20 @@ export default function Home() {
 
     try {
       const currentStats = calculateStats(inputText);
-
       const response = await fetch('/api/rewrite', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: inputText, style: 'english' }),
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to translate to English');
-      }
+      if (!response.ok) throw new Error('Failed to translate to English');
 
       const data = await response.json();
       const translatedText = data.rewrittenText;
-      setInputText(translatedText); // Update the input text with the translation
+      setInputText(translatedText);
       setOutputText(translatedText);
 
-      // Create history item with current timestamp
-      const historyItem: HistoryItem = {
-        originalText: inputText,
-        rewrittenText: translatedText,
-        timestamp: new Date(),
-      };
-
-      // Update document content with translated text
+      // Update document and stats
       setDocuments(
         documents.map((doc) =>
           doc.id === currentDocumentId
@@ -335,32 +225,7 @@ export default function Home() {
         )
       );
 
-      // Update daily data with new entry
-      setDailyData(prev => {
-        const updatedData = { ...prev };
-        if (!updatedData[currentDate]) {
-          updatedData[currentDate] = {
-            history: [],
-            stats: currentStats
-          };
-        }
-
-        // Update stats
-        updatedData[currentDate].stats = {
-          wordCount: (updatedData[currentDate].stats.wordCount || 0) + currentStats.wordCount,
-          tokenCount: (updatedData[currentDate].stats.tokenCount || 0) + currentStats.tokenCount,
-          cost: (updatedData[currentDate].stats.cost || 0) + currentStats.cost,
-        };
-
-        // Add new history item
-        updatedData[currentDate].history = [
-          historyItem,
-          ...(updatedData[currentDate].history || [])
-        ];
-
-        return updatedData;
-      });
-
+      updateStats(currentStats, inputText, translatedText);
     } catch (error) {
       console.error('Error:', error);
       setError('Failed to translate to English. Please try again.');
@@ -377,20 +242,15 @@ export default function Home() {
 
     setIsLoading(true);
     setError('');
-    setCurrentTone(tone);
 
     try {
       const response = await fetch('/api/rewrite', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: inputText, action: 'tone', tone }),
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to adjust tone');
-      }
+      if (!response.ok) throw new Error('Failed to adjust tone');
 
       const data = await response.json();
       setOutputText(data.rewrittenText);
@@ -402,155 +262,74 @@ export default function Home() {
     }
   };
 
-  const handleHistorySelect = (item: HistoryItem) => {
-    setInputText(item.originalText);
-    setOutputText(item.rewrittenText);
+  const updateStats = (currentStats: UsageStats, originalText: string, rewrittenText: string) => {
+    const historyItem: HistoryItem = {
+      originalText,
+      rewrittenText,
+      timestamp: new Date(),
+    };
+
+    setDailyData(prev => {
+      const updatedData = { ...prev };
+      if (!updatedData[currentDate]) {
+        updatedData[currentDate] = {
+          history: [],
+          stats: currentStats
+        };
+      }
+
+      updatedData[currentDate].stats = {
+        wordCount: (updatedData[currentDate].stats.wordCount || 0) + currentStats.wordCount,
+        tokenCount: (updatedData[currentDate].stats.tokenCount || 0) + currentStats.tokenCount,
+        cost: (updatedData[currentDate].stats.cost || 0) + currentStats.cost,
+      };
+
+      updatedData[currentDate].history = [
+        historyItem,
+        ...(updatedData[currentDate].history || [])
+      ];
+
+      return updatedData;
+    });
   };
 
-  const handleClearHistory = () => {
-    const shouldClear = window.confirm('Are you sure you want to clear all history? This cannot be undone.');
-    if (shouldClear) {
-      setDailyData({});
-      localStorage.removeItem('rewriteData');
-      setStats({ wordCount: 0, tokenCount: 0, cost: 0 });
-    }
-  };
-
-  const handleDateChange = (date: string) => {
-    setCurrentDate(date);
-  };
-
-  const handleFormatClick = (format: string) => {
-    // This is a simple implementation. In a real app, you'd want to use a proper rich text editor
-    const selection = window.getSelection();
-    if (!selection || !selection.toString()) return;
-
-    const selectedText = selection.toString();
-    let formattedContent = '';
-
-    switch (format) {
-      case 'h1':
-        formattedContent = `# ${selectedText}`;
-        break;
-      case 'h2':
-        formattedContent = `## ${selectedText}`;
-        break;
-      case 'h3':
-        formattedContent = `### ${selectedText}`;
-        break;
-      case 'bold':
-        formattedContent = `**${selectedText}**`;
-        break;
-      case 'italic':
-        formattedContent = `*${selectedText}*`;
-        break;
-      case 'underline':
-        formattedContent = `_${selectedText}_`;
-        break;
-      default:
-        formattedContent = selectedText;
-    }
-
-    const textArea = document.querySelector('textarea');
-    if (textArea) {
-      const start = textArea.selectionStart;
-      const end = textArea.selectionEnd;
-      const text = textArea.value;
-      setInputText(text.substring(0, start) + formattedContent + text.substring(end));
-    }
-  };
-
-  // Handle text selection from the editor
   const handleSelectionChange = useCallback((
     selection: string,
     range?: { startLineNumber: number; startColumn: number; endLineNumber: number; endColumn: number }
   ) => {
-    if (selection.trim()) {
-      setSelectedText(selection);
-      setSelectedRange(range || null);
-    } else {
-      setSelectedText('');
-      setSelectedRange(null);
-    }
+    setSelectedText(selection.trim() ? selection : '');
   }, []);
 
-  /**
-   * Handles rewriting of selected text
-   * This function is specifically designed for rewriting portions of text while maintaining context
-   */
   const handleRewriteSelection = async () => {
-    // Validate selected text
-    if (!selectedText.trim()) {
-      return;
-    }
+    if (!selectedText.trim()) return;
 
     setIsLoading(true);
     setError('');
 
     try {
-      // Make API request with isSelectedText flag for specialized handling
       const response = await fetch('/api/rewrite', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           text: selectedText, 
           style: currentStyle,
-          isSelectedText: true // Flag to use specialized prompt for selected text
+          isSelectedText: true
         }),
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to rewrite text');
-      }
+      if (!response.ok) throw new Error('Failed to rewrite text');
 
       const data = await response.json();
       const rewrittenText = data.rewrittenText;
 
-      // Create history item for the selection
-      const historyItem: HistoryItem = {
-        originalText: selectedText,
-        rewrittenText: rewrittenText,
-        timestamp: new Date(),
-      };
-
-      // Update statistics for the selected portion only
       const currentStats = calculateStats(selectedText);
-      setDailyData(prev => {
-        const updatedData = { ...prev };
-        if (!updatedData[currentDate]) {
-          updatedData[currentDate] = {
-            history: [],
-            stats: currentStats
-          };
-        }
+      updateStats(currentStats, selectedText, rewrittenText);
 
-        // Accumulate stats for the day
-        updatedData[currentDate].stats = {
-          wordCount: (updatedData[currentDate].stats.wordCount || 0) + currentStats.wordCount,
-          tokenCount: (updatedData[currentDate].stats.tokenCount || 0) + currentStats.tokenCount,
-          cost: (updatedData[currentDate].stats.cost || 0) + currentStats.cost,
-        };
-
-        // Add new history item at the beginning of the array
-        updatedData[currentDate].history = [
-          historyItem,
-          ...(updatedData[currentDate].history || [])
-        ];
-
-        return updatedData;
-      });
-
-      // Replace the selected text using Monaco editor's API
       if (editorRef.current) {
         editorRef.current.replaceSelectedText(rewrittenText);
       }
 
-      // Clear the selection after successful rewrite
       setSelectedText('');
-      setSelectedRange(null);
-
     } catch (error) {
       console.error('Error:', error);
       setError('Failed to rewrite selected text. Please try again.');
@@ -579,7 +358,7 @@ export default function Home() {
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
               <h1 className="text-xl font-semibold">{currentDocument?.title}</h1>
-              <FormattingToolbar onFormatClick={handleFormatClick} />
+              <FormattingToolbar onFormatClick={() => {}} />
             </div>
             <TextStats text={inputText} />
           </div>

@@ -23,6 +23,14 @@ export const Editor = forwardRef<EditorRef, EditorProps>(function Editor(
 ) {
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
 
+  // Debounce the onChange handler to prevent too many updates
+  const debouncedOnChange = useCallback(
+    debounce((value: string) => {
+      onChange(value);
+    }, 500),
+    [onChange]
+  );
+
   // Expose methods through ref
   useImperativeHandle(ref, () => ({
     replaceSelectedText: (newText: string) => {
@@ -37,19 +45,12 @@ export const Editor = forwardRef<EditorRef, EditorProps>(function Editor(
       // Get the original text with its formatting
       const originalText = model.getValueInRange(selection);
       
-      // Normalize both texts by removing extra whitespace
-      const normalizedOriginal = originalText.trim();
-      const normalizedNew = newText.trim();
-
-      // If original text had a trailing newline, preserve it
-      const hasTrailingNewline = originalText.endsWith('\n');
-      
       // If original text had leading/trailing spaces, preserve them
       const leadingSpaces = originalText.match(/^\s*/)?.[0] || '';
       const trailingSpaces = originalText.match(/\s*$/)?.[0] || '';
 
       // Reconstruct the text with original formatting
-      const finalText = leadingSpaces + normalizedNew + trailingSpaces;
+      const finalText = leadingSpaces + newText.trim() + trailingSpaces;
 
       editor.executeEdits('rewrite', [{
         range: selection,
@@ -61,15 +62,7 @@ export const Editor = forwardRef<EditorRef, EditorProps>(function Editor(
       const newValue = editor.getValue();
       debouncedOnChange(newValue);
     }
-  }), []);
-
-  // Debounce the onChange handler to prevent too many updates
-  const debouncedOnChange = useCallback(
-    debounce((value: string) => {
-      onChange(value);
-    }, 500),
-    [onChange]
-  );
+  }), [debouncedOnChange]);
 
   // Handle selection changes
   const handleEditorDidMount = (editor: editor.IStandaloneCodeEditor) => {
