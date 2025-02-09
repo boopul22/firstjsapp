@@ -18,7 +18,7 @@ type RewriteStyle = 'hindi' | 'english';
  */
 export async function rewriteText(text: string, style: RewriteStyle = 'hindi'): Promise<string> {
   try {
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-pro' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
     const prompt = getPromptForStyle(style, text);
     
     const result = await model.generateContent(prompt);
@@ -68,7 +68,7 @@ export interface AnalysisResult {
 
 export async function analyzeContent(text: string): Promise<AnalysisResult> {
   try {
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-exp' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
     const prompt = `You are a JSON generator. Return ONLY a JSON object with no additional text or formatting.
 The JSON object must follow this EXACT structure and format:
 {
